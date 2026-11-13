@@ -20,7 +20,7 @@ declare deviations:
 
 ```markdown
 ## Deviations
-- X3: the `sync` slice has two catch-alls (`Source`, `Repository`) because
+- X3: `SyncError` has two catch-alls (`Source`, `Repository`) because
   source and storage fail independently and the edge routes them differently.
 ```
 
@@ -29,7 +29,7 @@ not as a finding. A deviation with no reason is itself a finding.
 
 ## Procedure
 
-1. **Map the repo.** List slices, assign every source file one layer (S3),
+1. **Map the repo.** Assign every source file one layer (S3),
    list vendor dependencies from the manifest. Write the map at the top of
    the report; every later step uses it.
 2. **For each rule in scope:**
@@ -55,7 +55,7 @@ An audit reports. It does not fix, refactor, or open PRs unless asked.
 Scope: <families>   Language: <lang>   Conventions: <this repo> @ <commit>
 
 ## Map
-<slices, file → layer table, vendor list>
+<file → layer table, vendor list>
 
 ## Findings
 

@@ -6,8 +6,9 @@ the client sees is a deliberate public type, not a leaked internal one.
 
 ## Rules
 
-### E1 — The edge mirrors the slices
-Per resource: `requests` (in), `responses` (out + errors), `routes`
+### E1 — The edge is split by area
+Per area (a resource or a screen): `requests` (in), `responses` (out +
+errors), `views` (view models and markup, on hypermedia edges, E16), `routes`
 (handlers). Serialization derives exist only here.
 
 **Check:** serialization annotations appear only under the edge directory.
@@ -15,11 +16,16 @@ Per resource: `requests` (in), `responses` (out + errors), `routes`
 ### E2 — One request type per action, every field optional
 Every body field is optional, unknown fields are rejected. Missing input
 surfaces as a field-level validation error, never a deserializer rejection.
+Path segments and query strings are request types too (E17). A hypermedia
+client that sends its whole client state with every action is the one
+exception to rejecting unknown keys: keep client-only state out of the body
+(Datastar: underscore-prefixed signals) and read only the keys the action
+names.
 
 **Check:** request types have only optional fields and reject unknown keys.
 
 ### E3 — The inbound crossing parses everything before failing
-`Request -> DomainType` conversion lives in the edge slice. It parses
+`Request -> DomainType` conversion lives in the area's `requests`. It parses
 **every field before returning** — collecting all failures, not
 short-circuiting — then finishes through the domain constructor, which
 remains the single source of validation truth.
@@ -34,7 +40,7 @@ concept of a missing field.
 **Check:** no domain error variant means "field missing".
 
 ### E5 — Cross-field failures land where a form would highlight
-Fields belonging to another slice are parsed separately into that slice's
+Fields belonging to another entity are parsed separately into that entity's
 types, with failures in their own error slot.
 
 ### E6 — PUT takes the full payload
@@ -43,7 +49,7 @@ No read-then-merge in handlers; the conversion is total.
 ### E7 — One response type per action, owning its status
 Each action's response type owns its status code (create → 201, delete →
 204 no body, read → 200). Identical JSON today is not a reason to merge
-types — per-action wrappers around one slice-owned body, so a view can
+types — per-action wrappers around one area-owned body, so a view can
 diverge later as a local change.
 
 **Check:** no domain type implements the framework's response interface.
@@ -52,11 +58,11 @@ diverge later as a local change.
 `DomainType -> ResponseType` conversion; domain types are never serialized
 directly.
 
-### E9 — Embedded shapes are owned by the slice that renders them
-No shared DTOs (S6).
+### E9 — Embedded shapes are owned by the area that renders them
+No shared DTOs (S7).
 
 ### E10 — The validation error is the render context
-Each slice has one validation type holding the **submitted values** plus a
+Each form has one validation type holding the **submitted values** plus a
 **message slot per field** (empty = valid). It is the conversion's error type
 and the 400 body.
 
@@ -86,7 +92,41 @@ combine) → one service call → wrap. No business logic, no field validation,
 no inline wire shapes.
 
 **Check:** each handler body is a handful of lines with exactly one service
-call.
+call for the action, plus, on a hypermedia edge, the read that renders its
+result.
+
+### E16 — Hypermedia edges render view models
+A server-rendered page or fragment is built from a view model in the area's
+`views`, never by reading domain types inside markup. The view model is
+built by `From<&DomainType>` when the domain value alone decides the
+output, and by a named constructor (`OrderCard::new(&order, &viewer, now)`)
+when it also needs the viewer, a role or the clock. Display decisions —
+formatting money and durations, choosing a label, a glyph or a class — are
+made once, in that conversion; markup only prints.
+
+**Check:** no markup function takes a domain entity, projection or command;
+no formatting or display branching on domain values inside markup.
+
+### E17 — Paths and queries cross like bodies
+A path or query string has its own request type per action, converted with
+`TryFrom` into the command or id the service takes. A path segment that does
+not parse is the action's `NotFound`; a query that does not parse is a
+validation error.
+
+**Check:** no handler calls a domain constructor or `parse` directly; every
+extracted path or query type has a conversion into a domain type.
+
+### E18 — Hypermedia actions answer with patches
+An action called by a hypermedia client answers with the fragments it
+replaces, not with a status code to interpret. The action's response type
+owns its patch set: which element ids it replaces and the notice it shows.
+A validation failure re-renders the form with the submitted values and
+messages (E10); `Internal` patches a fixed notice and withholds detail
+(E14). Navigation the server forces (signed out, role changed) is its own
+response variant.
+
+**Check:** tests assert each action's patch targets and notice; a test
+asserts the `Internal` patch contains no internal text.
 
 ## Pseudocode
 
@@ -102,7 +142,7 @@ validation EntityValidationErrors      # E10
 
 convert CreateEntityRequest -> CreateEntity | EntityValidationErrors    # E3
   name    = required("name", req.name, EntityName.new)     # E4
-  team_id = required("team_id", req.team_id, TeamId.new)   # E5: other slice's type
+  team_id = required("team_id", req.team_id, TeamId.new)   # E5: other entity's type
   if any failed: return errors with submitted values
   return CreateEntity.new(name, team_id)                   # cross-field rules (N9)
 

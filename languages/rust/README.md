@@ -19,7 +19,7 @@ How the rules look in Rust. Rule files say *what*; these files say *how*.
   no `Box<dyn …>`, no `Pin<Box<dyn Future>>` (X8).
 - Errors: `thiserror` everywhere. No `anyhow` (X6).
 - Serialization: `serde` only under `src/http/` (E1).
-- Slice gates are `src/<slice>.rs` files, not `mod.rs`.
+- Layer and area gates are `src/<layer>.rs` and `src/http/<area>.rs` files, not `mod.rs`.
 
 ## Rule-to-idiom map
 
@@ -31,10 +31,15 @@ How the rules look in Rust. Rule files say *what*; these files say *how*.
 | N6 | `pub const ENTITY_NAME_MAX_LENGTH: usize = 64;` |
 | P3 | `pub(crate) trait EntityRepository` |
 | A2 | `impl From<sqlx::Error> for EntityError` in the adapter file |
+| A5 | ports use plain `async fn`; the `dispatch!` enum is concrete, so its futures are `Send` without `impl Future + Send` |
+| A8 | `#[derive(sqlx::FromRow)] struct EntityRow`, `impl TryFrom<EntityRow> for Entity` |
+| V7 | one `async fn cancel(…)` on the port; the adapter opens `BEGIN IMMEDIATE`, writes every table, commits |
 | V4 | `#[error(transparent)] Entity(#[from] EntityError)` |
 | E2 | `#[derive(Deserialize)] #[serde(deny_unknown_fields)]`, all `Option<String>` |
 | E3 | `impl TryFrom<&CreateEntityRequest> for CreateEntity` |
 | E7 | `impl IntoResponse for EntityCreatedResponse` |
+| E16 | `impl From<&Entity> for EntityRow`; `OrderCard::new(&order, &viewer, now)`; `fn order_card(card: &OrderCard) -> Markup` |
+| E17 | `#[derive(Deserialize)] struct MoveOrderPath`, `impl TryFrom<MoveOrderPath> for MoveOrder`, extracted with `Parsed<MoveOrder>` |
 | X8 | `fn main() -> Result<(), BootstrapError>` |
 | C5 | hand-written `impl Debug` / `Display` printing `***` |
 | T1 | `#[cfg(test)] mod tests { mod entity_name { … } }` |

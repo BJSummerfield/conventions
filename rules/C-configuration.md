@@ -5,7 +5,7 @@ value. Nothing reads the environment at request time.
 
 ## Rules
 
-### C1 — Configuration is a full slice
+### C1 — Configuration is a full capability
 An `EnvRepository` port (fetch one raw value by key), one adapter per source
 (`LocalEnvRepository` for the process environment, `KeyVaultEnvRepository`,
 …), a dispatch wrapper (`EnvRepo`), and an `EnvService` that owns the routing.

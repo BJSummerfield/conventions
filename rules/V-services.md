@@ -6,8 +6,8 @@ CLI, cron, queue) calls the same services, and none of them knows which.
 ## Rules
 
 ### V1 — Services are the only thing the edge talks to
-They own orchestration: multi-step operations, cascades, cross-slice
-composition.
+They own orchestration: multi-step operations, cascades, composition
+across entities (S5).
 
 **Check:** edge code never imports a repository, adapter, or port.
 
@@ -26,11 +26,11 @@ distinct from entities, built by the service.
 
 **Check:** no entity grows optional fields to carry joined data.
 
-### V4 — Service errors compose slice errors
-A service error wraps its slices' errors transparently, with automatic
+### V4 — Service errors compose entity errors
+A service error wraps its entities' errors transparently, with automatic
 conversion, and adds its own variants for orchestration-level failures.
 
-**Check:** no manual re-mapping of a slice error into a near-identical
+**Check:** no manual re-mapping of an entity error into a near-identical
 service variant.
 
 ### V5 — Services depend on ports, via dispatch wrappers
@@ -38,7 +38,7 @@ Never on concrete adapters.
 
 **Check:** service fields are dispatch-wrapper types (`EntityRepo`).
 
-### V6 — Capability slices get services too
+### V6 — Capabilities get services too
 When there is orchestration to own. Routing catalog options across multiple
 live sources (`EnvService`) is a service job exactly like cross-entity
 composition (`FleetService`). The dispatch wrapper answers *which adapter
@@ -46,6 +46,16 @@ implements this slot*; the service answers *which slot owns this value*.
 
 **Check:** source-routing logic lives in a service, not in bootstrap or a
 dispatch wrapper.
+
+### V7 — Atomic work across entities is one port method
+When a use case must change several entities together (a cancel that
+returns stock, a removal that releases what the account held), the port
+names the use case and its adapter runs it in one transaction. The service
+never strings separate port calls together and hopes nothing happens in
+between.
+
+**Check:** no service makes two writing port calls that must succeed or fail
+together.
 
 ## Pseudocode
 

@@ -165,3 +165,65 @@ async fn internal_error_body_withholds_detail() {
     assert_eq!(body_json(response).await, json!({ "error": "internal error" }));
 }
 ```
+
+## Paths cross through one extractor (E17)
+
+```rust
+// src/http/parsed.rs
+pub struct Parsed<T>(pub T);
+
+impl<S, T> FromRequestParts<S> for Parsed<T>
+where
+    S: Send + Sync,
+    T: TryFrom<T::Raw> + PathCommand,
+{
+    type Rejection = Response;
+
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        let Path(raw) = Path::<T::Raw>::from_request_parts(parts, state)
+            .await
+            .map_err(|_| not_found())?;
+        T::try_from(raw).map(Parsed).map_err(|_| not_found())
+    }
+}
+
+pub trait PathCommand: Sized {
+    type Raw: DeserializeOwned + Send;
+}
+```
+
+```rust
+// src/http/board/requests.rs
+#[derive(Deserialize)]
+pub struct MoveOrderPath { order_id: String, transition: String }
+
+impl TryFrom<MoveOrderPath> for MoveOrder {
+    type Error = OrderError;
+    fn try_from(path: MoveOrderPath) -> Result<Self, Self::Error> {
+        Ok(MoveOrder::new(OrderId::new(&path.order_id)?, path.transition.parse()?))
+    }
+}
+
+impl PathCommand for MoveOrder { type Raw = MoveOrderPath; }
+
+// the handler receives a domain command; a bad id never reaches it
+async fn move_order(State(state): State<AppState>, signed: SignedIn, Parsed(cmd): Parsed<MoveOrder>) -> Response
+```
+
+## View models for hypermedia (E16)
+
+```rust
+// src/http/board/views.rs
+pub struct OrderCard { dom_id: String, number: String, age: String, owner: Owner }
+
+impl OrderCard {
+    pub fn new(order: &OrderSummary, viewer: &SignedIn, now: Timestamp) -> Self { /* every display decision here */ }
+}
+
+fn order_card(card: &OrderCard) -> Markup {
+    html! { li.card id=(card.dom_id) { (card.number) " " (card.age) } }
+}
+```
+
+The view model's constructor is unit-tested with plain inputs; the markup
+function is tested by anchors (T11).

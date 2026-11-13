@@ -8,7 +8,7 @@ wrong, and each hop between boundaries is one explicit conversion.
 ### X1 — The ladder: one conversion per hop, on the outer side
 ```
 vendor error
-  → SliceError        in the adapter file (A2), or inline where the
+  → EntityError       in the adapter file (A2), or inline where the
                       failure is a domain fact (A3)
   → ServiceError      transparent wrapping, automatic conversion (V4)
   → ActionError       conversion from ServiceError, per action, in the edge (E12)
@@ -25,7 +25,7 @@ the data to explain themselves (`{ max, actual }`).
 **Check:** no variant carries a single message string except the catch-all
 (X3).
 
-### X3 — Exactly one catch-all per slice
+### X3 — Exactly one catch-all per entity error
 One adapter-agnostic catch-all variant (`Repository(String)` /
 `Database(String)`) for opaque infrastructure failures. Everything else is a
 named domain fact.
@@ -72,7 +72,7 @@ signature.
 ## Pseudocode
 
 ```
-error EntityError                          # slice (domain)
+error EntityError                          # domain
   EmptyName
   NameTooLong { max, actual }
   AlreadyExists(EntityId)

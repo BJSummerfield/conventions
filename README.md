@@ -11,9 +11,12 @@ Built on three guides by howtocodeit:
 - [The Definitive Guide to Rust Error Handling](https://www.howtocodeit.com/guides/the-definitive-guide-to-rust-error-handling)
 - [Ultimate Guide to Rust Newtypes](https://www.howtocodeit.com/guides/ultimate-guide-rust-newtypes)
 
-**One deliberate deviation from the guides:** code is organized as **vertical
-slices** (each business capability owns its full stack) rather than a
-top-level `domain/` + `adapters/` split.
+**Deviations from the guides:** adapters are swapped by **enum dispatch**
+(`dispatch!`), not generics or trait objects; errors are `thiserror` enums
+with no `anyhow`; rows are re-parsed through the checked constructors rather
+than trusted with an unchecked one. Code is organized in hexagonal layers
+(`domain`, `ports`, `adapters`, `services`, edges), and services group
+entities.
 
 ## Layout
 
@@ -27,7 +30,7 @@ AGENTS.md           entry point for an agent pointed at this repo
 
 | Family | File | Covers |
 |---|---|---|
-| S | [Structure](rules/S-structure.md) | vertical slices, layer vocabulary |
+| S | [Structure](rules/S-structure.md) | hexagonal layers, layer vocabulary |
 | N | [Domain modeling](rules/N-domain-modeling.md) | newtypes, entities, constructors |
 | P | [Ports](rules/P-ports.md) | every external capability is a contract |
 | A | [Adapters](rules/A-adapters.md) | vendor implementations, dispatch |
@@ -60,7 +63,7 @@ Point the agent at this repository and name the scope:
 > `github.com/BJSummerfield/conventions`, families P, A and X. Follow
 > `audit/README.md` and write the report it describes.
 
-> Implement the `orders` slice following the conventions at
+> Implement order cancellation following the conventions at
 > `github.com/BJSummerfield/conventions` (Rust).
 
 A repo can declare where it deliberately departs from a rule in a

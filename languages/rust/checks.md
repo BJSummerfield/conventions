@@ -5,35 +5,45 @@ calling it a finding (audit/README.md). Commands use `rg` (ripgrep); run from
 the repo root. **Count first** (`rg -c`), then read — never decide from a
 truncated list.
 
-Paths assume the S2 layout. Adjust slice names to the repo.
+Paths assume the S2 layout (`src/domain`, `src/ports`, `src/adapters`,
+`src/services`, `src/http`).
 
 ## S — Structure
 
 ```sh
-# S1/S5: layer-named or kitchen-sink modules (expect: none)
-fd -t f -t d '^(domain|adapters|models|services|repositories|utils|helpers|common|dto|types|macros)(\.rs)?$' src --max-depth 1
+# S1: top-level modules (read: each is a layer, a generator or the entry point)
+ls src
 
-# S6: cross-slice imports of adapters or edge shapes (expect: none)
-rg -n 'use crate::\w+::adapters' src --glob '!**/bootstrap.rs' --glob '!src/*/adapters/**'
+# S6: kitchen-sink modules at any depth (expect: none)
+fd -t f -t d '^(models|repositories|utils|helpers|common|dto|types)(\.rs)?$' src
+
+# S4: domain imports outer layers (expect: none)
+rg -n 'crate::(ports|adapters|services|http|runners|bootstrap)' src/domain
+
+# S4: services import concrete adapters (expect: only *_repo wrappers)
+rg -nP 'crate::adapters::(?!\w+_repo\b)' src/services
+
+# S4: edges import ports or adapters (expect: only logger_repo, and test modules)
+rg -n 'crate::(ports|adapters)::' src/http src/runners
 ```
 
 ## N — Domain modeling
 
 ```sh
 # N2: public fields in domain (expect: none)
-rg -n '^\s*pub(\(crate\))? [a-z_]+\s*:' src/*/domain
+rg -n '^\s*pub(\(crate\))? [a-z_]+\s*:' src/domain
 
 # N2: setters (expect: none)
-rg -n 'pub fn set_' src/*/domain
+rg -n 'pub fn set_' src/domain
 
 # N5: Deref/Borrow on newtypes (expect: none)
 rg -n 'impl\s.*\b(Deref|DerefMut|Borrow)\b' src
 
 # N6: literal bounds in constructors (read hits)
-rg -n '(len\(\)|chars\(\)\.count\(\))\s*[<>]=?\s*[0-9]' src/*/domain
+rg -n '(len\(\)|chars\(\)\.count\(\))\s*[<>]=?\s*[0-9]' src/domain
 
 # N8/G1: hand-written catalog lookups (read hits: a match from variant to &'static str)
-rg -n -A3 'fn \w+\(&self\) -> &.static str' src/*/domain
+rg -n -A3 'fn \w+\(&self\) -> &.static str' src/domain
 
 # N10: struct-literal construction of domain types outside their module (read hits)
 rg -n 'unchecked|from_raw_unchecked' src
@@ -47,14 +57,14 @@ rg -n '^\s*pub trait \w+(Repository|Logger|Clock|Gateway|Mailer|Sender)\b' src
 
 # P1/P4: vendor names outside adapters/bootstrap/edge (expect: none)
 rg -n '\b(sqlx|diesel|mongodb|reqwest|tracing|tracing_subscriber|dotenvy)::|std::env' src \
-  --glob '!src/*/adapters/**' --glob '!src/bootstrap.rs' --glob '!src/main.rs'
+  --glob '!src/adapters/**' --glob '!src/bootstrap.rs' --glob '!src/main.rs'
 
 # P1: direct time/randomness in business code (expect: none)
 rg -n 'Utc::now|SystemTime::now|Instant::now|rand::|Uuid::new_v4' src \
-  --glob '!src/*/adapters/**' --glob '!src/bootstrap.rs'
+  --glob '!src/adapters/**' --glob '!src/bootstrap.rs'
 
 # P2: vendor types in port signatures (read the trait bodies)
-rg -n -A30 'pub\(crate\) trait \w+' src/*/domain | rg 'chrono::|DateTime<|uuid::|sqlx::|serde_json::'
+rg -n -A30 'pub\(crate\) trait \w+' src/ports | rg 'chrono::|DateTime<|uuid::|sqlx::|serde_json::'
 
 # P6: framework server types outside the server wrapper (expect: only src/http/server.rs and bootstrap)
 rg -ln 'axum::serve|TcpListener|HttpServer::new' src
@@ -64,13 +74,13 @@ rg -ln 'axum::serve|TcpListener|HttpServer::new' src
 
 ```sh
 # A2: vendor-error conversions outside adapters (expect: none)
-rg -n 'impl From<(sqlx|reqwest|mongodb|serde_json|std::io)::' src --glob '!src/*/adapters/**'
+rg -n 'impl From<(sqlx|reqwest|mongodb|serde_json|std::io)::' src --glob '!src/adapters/**'
 
 # A5/X8: dynamic dispatch over ports (expect: none)
 rg -n 'dyn \w+(Repository|Logger|Clock|Gateway)|Arc<dyn|Box<dyn' src
 
 # A6: hardcoded locations in adapters (read hits)
-rg -n '"(https?://|sqlite:|postgres://|mongodb://|/)' src/*/adapters
+rg -n '"(https?://|sqlite:|postgres://|mongodb://|/)' src/adapters
 ```
 
 ## V — Services
@@ -80,7 +90,7 @@ rg -n '"(https?://|sqlite:|postgres://|mongodb://|/)' src/*/adapters
 rg -n 'use crate::\w+::(adapters|domain::types::\w+Repository)' src/http
 
 # V5: services holding concrete adapters (expect: none)
-rg -n '(Sqlx|Sqlite|Postgres|Mongo|InMemory|Cosmos)\w*Repository' src/*/*_service.rs
+rg -n '(Sqlx|Sqlite|Postgres|Mongo|InMemory|Cosmos)\w*Repository' src/services/*_service.rs
 ```
 
 ## E — Edge
@@ -109,7 +119,7 @@ rg -n -B2 -A6 'INTERNAL_SERVER_ERROR' src/http
 # X6: anyhow/eyre (expect: none outside main.rs, ideally none at all)
 rg -n 'anyhow|eyre' src Cargo.toml
 
-# X2/X3: string-carrying variants (read hits; one catch-all per slice is allowed)
+# X2/X3: string-carrying variants (read hits; one catch-all per entity error is allowed)
 rg -n '^\s*\w+\(String\),?$' src
 
 # X5: variants whose message drops the cause (read hits)
@@ -151,7 +161,7 @@ wc -l src/main.rs
 rg -n '\b(if|match|for|while|loop)\b' src/main.rs
 
 # B3: concrete adapter constructors outside bootstrap (read hits)
-rg -n '\w+Repository::new\(' src --glob '!src/bootstrap.rs' --glob '!src/*/adapters/**'
+rg -n '\w+Repository::new\(' src --glob '!src/bootstrap.rs' --glob '!src/adapters/**'
 ```
 
 ## T — Tests
@@ -171,7 +181,7 @@ rg -n '#\[cfg\(test\)\]' src/bootstrap.rs
 
 ```sh
 # G1: hand-written dispatch wrappers (expect: none; every *_repo.rs uses dispatch!)
-rg --files-without-match 'dispatch!' src/*/adapters/*_repo.rs
+rg --files-without-match 'dispatch!' src/adapters/*_repo.rs
 rg -c 'Self::\w+\((inner|repo|r)\) => (inner|repo|r)\.' src
 
 # G6: generator modules named for the pattern
@@ -179,5 +189,34 @@ fd -t f '^(dispatch|catalog)\.rs$' src
 fd -t f '^(macros|utils)\.rs$' src           # expect: none
 
 # G7: wrapper arms doing work inline (read hits)
-rg -n -A3 '=> \{' src/*/adapters/*_repo.rs
+rg -n -A3 '=> \{' src/adapters/*_repo.rs
+```
+
+## Rows and hypermedia edges (A8, E16, E17, E18)
+
+```sh
+# A8: positional reads that build domain values (read hits; row conversions are fine)
+rg -n 'query_as\(|query_as::<_, \(|row\.get|try_get\(' src/adapters
+
+# E16: markup functions taking domain types (read hits: params must be view models)
+rg -n -B1 -A3 '\) -> Markup' src/http
+
+# E17: handlers parsing ids themselves (expect: none)
+rg -n '\b[A-Z]\w+(Id|Number)::new\(|\.parse::<' src/http --glob '**/routes.rs'
+
+# E18: the internal patch withholds detail (find the test)
+rg -n 'fn \w*internal\w*' src/http --glob '**/responses.rs'
+```
+
+## T — Tests (T7–T11)
+
+```sh
+# T9: tests with no assertion (read hits)
+rg -n -U '#\[(tokio::)?test\]\s*\n\s*(async )?fn \w+\(\)[^{]*\{[^}]*\}' src tests
+
+# T10: real time, sleeps or random ids in tests (read hits)
+rg -n 'SystemTime::now|Instant::now|tokio::time::sleep|thread::sleep|Uuid::new_v4' src tests --glob '!src/adapters/**'
+
+# T11: whole-fragment markup assertions (read hits: long literal HTML in asserts)
+rg -n 'assert(_eq)?!\(.*"<[a-z]+[^"]{120,}' src tests
 ```

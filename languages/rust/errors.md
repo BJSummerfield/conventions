@@ -4,8 +4,8 @@
 
 | Hop | Lives in | Rust |
 |---|---|---|
-| vendor → slice | adapter file | `impl From<sqlx::Error> for EntityError`, or `.map_err` at the call site for domain facts |
-| slice → service | service file | `#[error(transparent)] Entity(#[from] EntityError)` |
+| vendor → entity | adapter file | `impl From<sqlx::Error> for EntityError`, or `.map_err` at the call site for domain facts |
+| entity → service | service file | `#[error(transparent)] Entity(#[from] EntityError)` |
 | service → action | `http/<entity>/responses.rs` | `impl From<EntityServiceError> for EntityUpdateError` |
 | action → status | same | `impl IntoResponse for EntityUpdateError` |
 

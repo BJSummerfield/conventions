@@ -6,7 +6,7 @@ should be shaped. Read only what your task needs.
 ## If you are implementing
 
 1. Read the rule files for the families your change touches (`rules/`).
-   A new slice touches S, N, P, A, V, E, X, T and M; a new adapter touches
+   A new entity touches S, N, P, A, V, E, X, T and M; a new adapter touches
    P, A, X and T.
 2. Read the matching examples under `languages/<lang>/`. When a rule and an
    example disagree, the rule wins — report the disagreement.

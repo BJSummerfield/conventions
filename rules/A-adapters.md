@@ -29,7 +29,7 @@ cares about produce a named variant.
 
 ### A4 — Only opaque failures fall through
 Only genuinely opaque failures (connection lost, driver bug) reach the
-slice's catch-all variant (X3).
+entity error's catch-all variant (X3).
 
 **Check:** read every path into the catch-all; each is something the domain
 cannot act on.
@@ -54,6 +54,19 @@ constructors.
 Adapters build entities the same way the edge does (N10).
 
 **Check:** every row/document-to-entity mapping calls domain `new()`.
+
+### A8 — Rows cross through row types
+A query result is read into a row type (`OrderRow`, `#[derive(FromRow)]` or
+equivalent) and enters the domain through `TryFrom<OrderRow> for Order`,
+which calls the domain constructors (A7) and turns a bad column into the
+catch-all naming that column. A row type read by several adapters of one
+vendor lives in `<vendor>_<entity>_rows`, the one exception to A1; a row type
+read by one adapter lives in that adapter's file. Single scalar reads (a
+count, a returned id) need no row type.
+
+**Check:** no tuple or positional column reads that build a domain type
+outside a row conversion; each row type has exactly one conversion into the
+domain.
 
 ## Pseudocode
 

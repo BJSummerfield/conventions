@@ -6,8 +6,8 @@ is a port, an adapter, or a wrapper, the name is wrong.
 | Thing | Pattern |
 |---|---|
 | Value object | `<Entity><Attribute>` (`EntityId`, `EntityName`) |
-| Domain error | `<Entity>Error`, `<Slice>Error` |
-| Command | `Update<Entity>`, `Create<Entity>` |
+| Domain error | `<Entity>Error` |
+| Command | `<Verb><Entity>` (`CreateEntity`, `MoveOrder`) |
 | Projection | `<Entity>Detail`, `<Entity>Summary` |
 | Service | `<Capability>Service` (`FleetService`, `EnvService`) |
 | Service error | `<Capability>ServiceError` |
@@ -17,6 +17,9 @@ is a port, an adapter, or a wrapper, the name is wrong.
 | Catalog | `<Capability>Option` (`EnvOption`) + `<Capability>SourceKind` |
 | Catalog metadata | `<Catalog>Meta` (`EnvOptionMeta`) |
 | Request | `<Action><Entity>Request` |
+| Path or query request | `<Action><Entity>Path`, `<Action><Entity>Query` |
+| View model | a noun for what is shown (`OrderCard`, `SalesTable`) |
+| Row type | `<Entity>Row`, file `<vendor>_<entity>_rows` when shared |
 | Response | `<Entity><Action>Response`, one per action |
 | Edge error | `<Entity><Action>Error`, one per action |
 | Validation | `<Entity>ValidationErrors` |
