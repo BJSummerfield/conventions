@@ -111,10 +111,7 @@ impl From<EntityServiceError> for EntityCreateError {
             // service are internal faults; listing them means a new variant fails to
             // compile here instead of falling into Internal unseen (X9).
             e @ EntityServiceError::Entity(
-                EntityError::EmptyName
-                | EntityError::NameTooLong { .. }
-                | EntityError::InvalidId { .. }
-                | EntityError::Repository(_),
+                EntityError::Name(_) | EntityError::Id(_) | EntityError::Repository(_),
             ) => Self::Internal(e),
             e @ EntityServiceError::Team(TeamError::Repository(_)) => Self::Internal(e),
         }

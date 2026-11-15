@@ -81,9 +81,12 @@ converts one error type into another.
 ## Pseudocode
 
 ```
+error EntityNameError                      # one constructor's rejections (N11)
+  Empty
+  TooLong { max, actual }
+
 error EntityError                          # domain
-  EmptyName
-  NameTooLong { max, actual }
+  Name(EntityNameError)                    transparent
   AlreadyExists(EntityId)
   Repository(string)                       # catch-all (X3)
 

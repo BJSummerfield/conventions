@@ -79,17 +79,28 @@ through the same constructors as user input.
 `from_raw_unchecked` or struct-literal construction outside the type's own
 module.
 
+### N11 — Each constructor reports only what it rejects
+A fallible value constructor returns its own error type
+(`EntityNameError { Empty, TooLong { max, actual } }`) listing only what that
+constructor can reject, carrying the rejected input or limit. The entity
+error wraps each one transparently (`Name(#[from] EntityNameError)`), so `?`
+converts automatically and ports and services still speak one error per
+entity (X1, V4). A constructor's signature then says exactly how it can fail.
+
+**Check:** no value constructor returns its entity error; every constructor
+error has exactly one transparent variant in its entity error.
+
 ## Pseudocode
 
 ```
 const ENTITY_NAME_MAX_LENGTH = 64
 
 type EntityName (private value: string)
-  new(raw: string) -> EntityName | EntityError
+  new(raw: string) -> EntityName | EntityNameError
     trimmed = trim(raw)
-    if trimmed is empty: return EntityError.EmptyName
+    if trimmed is empty: return EntityNameError.Empty
     if length(trimmed) > ENTITY_NAME_MAX_LENGTH:
-      return EntityError.NameTooLong { max: ENTITY_NAME_MAX_LENGTH, actual: length(trimmed) }
+      return EntityNameError.TooLong { max: ENTITY_NAME_MAX_LENGTH, actual: length(trimmed) }
     return EntityName(trimmed)
   as_str() -> string
 

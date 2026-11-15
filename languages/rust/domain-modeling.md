@@ -9,14 +9,14 @@ pub const ENTITY_NAME_MAX_LENGTH: usize = 64;
 pub struct EntityName(String);
 
 impl EntityName {
-    pub fn new(raw: &str) -> Result<Self, EntityError> {
+    pub fn new(raw: &str) -> Result<Self, EntityNameError> {
         let trimmed = raw.trim();
         if trimmed.is_empty() {
-            return Err(EntityError::EmptyName);
+            return Err(EntityNameError::Empty);
         }
         let actual = trimmed.chars().count();
         if actual > ENTITY_NAME_MAX_LENGTH {
-            return Err(EntityError::NameTooLong { max: ENTITY_NAME_MAX_LENGTH, actual });
+            return Err(EntityNameError::TooLong { max: ENTITY_NAME_MAX_LENGTH, actual });
         }
         Ok(Self(trimmed.to_string()))
     }
@@ -35,7 +35,7 @@ impl fmt::Display for EntityName {
 }
 
 impl FromStr for EntityName {
-    type Err = EntityError;
+    type Err = EntityNameError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Self::new(s)
@@ -51,10 +51,10 @@ signatures:
 pub struct EntityId(uuid::Uuid);
 
 impl EntityId {
-    pub fn new(raw: &str) -> Result<Self, EntityError> {
+    pub fn new(raw: &str) -> Result<Self, EntityIdError> {
         uuid::Uuid::parse_str(raw)
             .map(Self)
-            .map_err(|_| EntityError::InvalidId { input: raw.to_string() })
+            .map_err(|_| EntityIdError { input: raw.to_string() })
     }
 }
 ```
@@ -106,19 +106,35 @@ impl UpdateWindow {
 }
 ```
 
-## Errors with their limits (N6, X2)
+## Errors with their limits (N6, N11, X2)
+
+Each constructor has its own error, listing only what it rejects; the entity
+error wraps them, so `?` converts and ports and services still speak one error
+per entity.
 
 ```rust
-#[derive(Debug, PartialEq, thiserror::Error)]
-pub enum EntityError {
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum EntityNameError {
     #[error("name must not be empty")]
-    EmptyName,
+    Empty,
 
     #[error("name is {actual} characters; the limit is {max}")]
-    NameTooLong { max: usize, actual: usize },
+    TooLong { max: usize, actual: usize },
+}
 
-    #[error("invalid entity id '{input}'")]
-    InvalidId { input: String },
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[error("invalid entity id '{input}'")]
+pub struct EntityIdError {
+    input: String,
+}
+
+#[derive(Debug, PartialEq, thiserror::Error)]
+pub enum EntityError {
+    #[error(transparent)]
+    Name(#[from] EntityNameError),
+
+    #[error(transparent)]
+    Id(#[from] EntityIdError),
 
     #[error("entity {0} already exists")]
     AlreadyExists(EntityId),
@@ -149,13 +165,13 @@ mod tests {
             let raw = "a".repeat(ENTITY_NAME_MAX_LENGTH + 1);
             assert_eq!(
                 EntityName::new(&raw),
-                Err(EntityError::NameTooLong { max: ENTITY_NAME_MAX_LENGTH, actual: 65 })
+                Err(EntityNameError::TooLong { max: ENTITY_NAME_MAX_LENGTH, actual: 65 })
             );
         }
 
         #[test]
         fn too_long_message_names_both_numbers() {
-            let err = EntityError::NameTooLong { max: 64, actual: 65 };
+            let err = EntityNameError::TooLong { max: 64, actual: 65 };
             assert_eq!(err.to_string(), "name is 65 characters; the limit is 64");
         }
     }

@@ -7,6 +7,7 @@ is a port, an adapter, or a wrapper, the name is wrong.
 |---|---|
 | Value object | `<Entity><Attribute>` (`EntityId`, `EntityName`) |
 | Domain error | `<Entity>Error` |
+| Constructor error | `<Value>Error` (`EntityNameError`), wrapped by its entity error |
 | Adapter error | `<Vendor><Port>Error` (`SqliteEntityRepositoryError`), private to the adapter file |
 | Command | `<Verb><Entity>` (`CreateEntity`, `MoveOrder`) |
 | Projection | `<Entity>Detail`, `<Entity>Summary` |

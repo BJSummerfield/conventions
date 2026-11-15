@@ -27,6 +27,7 @@ How the rules look in Rust. Rule files say *what*; these files say *how*.
 |---|---|
 | N2 | private fields, `pub fn field(&self) -> &T` |
 | N3 | `TryFrom<&str>`, `FromStr` call `Self::new` |
+| N11 | `pub enum EntityNameError`; `Name(#[from] EntityNameError)` in `EntityError` |
 | N5 | no `Deref`/`Borrow`; `Display`, `AsRef<str>` |
 | N6 | `pub const ENTITY_NAME_MAX_LENGTH: usize = 64;` |
 | P3 | `pub(crate) trait EntityRepository` |

@@ -8,6 +8,31 @@ truncated list.
 Paths assume the S2 layout (`src/domain`, `src/ports`, `src/adapters`,
 `src/services`, `src/http`).
 
+## In the merge gate
+
+The checks whose expected result is "none" run in the merge gate next to
+fmt, clippy and the tests, as one script that exits non-zero on a hit and
+prints the rule id and `file:line`. A repo lists the hits it accepts — a
+declared deviation, or a violation an open issue will remove — by exact
+location in that script, never by a broad pattern, so a new hit always
+fails. "Read hits" checks stay for audits.
+
+Lints that enforce rules on every build:
+
+```toml
+[lints.clippy]
+unwrap_used = "deny"        # X7: errors are returned, not panicked
+expect_used = "deny"
+unreachable = "deny"        # parse once and use the result instead of re-checking
+```
+
+`clippy::wildcard_enum_match_arm` enforces X9, but it also flags legitimate
+wildcards over non-error enums, so enable it on the modules that convert
+errors (`#![deny(clippy::wildcard_enum_match_arm)]` at the top of each
+adapter file and each edge `responses.rs`) rather than crate-wide. Tests may
+unwrap through `clippy.toml` (`allow-unwrap-in-tests = true`,
+`allow-expect-in-tests = true`), never through `#[allow]` attributes.
+
 ## S — Structure
 
 ```sh
