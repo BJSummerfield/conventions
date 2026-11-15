@@ -129,3 +129,19 @@ The port method converts once at its return (`.map_err(EntityError::from)`);
 everything inside the adapter works in `SqliteEntityRepositoryError`. The
 entity error cannot wrap the adapter error transparently, because the domain
 never names an adapter type (P2, S4).
+
+An adapter never builds or wraps an entity error. A refusal it discovers
+itself is its own variant, mapped in the one conversion:
+
+```rust
+#[error("no entity row matched {0}")]
+NoRow(EntityId),                       // UPDATE/DELETE touched 0 rows
+// in the From:
+SqliteEntityRepositoryError::NoRow(id) => EntityError::NotFound(id),
+```
+
+A domain rule called inside a transaction returns a decision
+(`enum CancelOutcome { Cancelled, Pending, NotCancellable }`), which the adapter
+maps to its own variant. A variant such as `Refused(#[from] EntityError)` is
+the shape to avoid: every `?` on an entity error would pass the boundary
+without a decision.

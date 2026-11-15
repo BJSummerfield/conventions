@@ -258,4 +258,7 @@ rg -n 'to_string\(\)\s*\.contains\(' src/adapters
 
 # A2: adapter error types escaping the adapter (expect: none)
 rg -n '\w+RepositoryError\b' src/ports src/services src/http src/domain
+
+# A2: an adapter error variant holding an entity error (expect: none)
+rg -n -A1 '#\[error\(transparent\)\]' src/adapters | rg '\(#\[from\] \w+Error\)' | rg -v 'sqlx::|password_hash::'
 ```

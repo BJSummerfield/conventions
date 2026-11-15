@@ -16,14 +16,14 @@ technology, and its name says which.
 Each adapter has its own error type (`SqliteEntityRepositoryError`) whose
 variants name what went wrong in the adapter's terms — a unique index, a
 trigger, a row that did not match, an invalid column — plus the vendor error
-itself, kept typed. The adapter's internals return this type. It converts
+itself, kept typed. The adapter's internals return this type. The adapter builds only its own error: a fact its own reads discover (no row matched, a count says no) is an adapter variant too, and a domain rule it calls inside a transaction returns a decision the adapter maps, not a domain error. Every entity error therefore comes from the one conversion. It converts
 into the entity error in exactly one place, in the adapter file, by an
 exhaustive match (X9). The adapter error never appears in a port signature,
 a service or the edge, and the entity error never names it: the conversion
 is a match into domain-owned variants, not a transparent wrap.
 
 **Check:** every adapter file defines its error type and one conversion into
-the entity error; no port, service or edge file names an adapter error type.
+the entity error; no port, service or edge file names an adapter error type. No adapter error variant holds an entity error type.
 
 ### A3 — Domain facts are recognised structurally
 Vendor failures that are domain facts — a unique-key violation on insert, a
