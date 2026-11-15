@@ -12,20 +12,31 @@ Named `<vendor>_<capability>`: `sqlx_entity_repository`, `tracing_logger`,
 **Check:** each adapter file implements exactly one port for exactly one
 technology, and its name says which.
 
-### A2 — Vendor-error translation lives in the adapter
-Converting a vendor error into a domain error lives in the adapter file — the
-domain never learns the vendor exists.
+### A2 — Each adapter names its own failures
+Each adapter has its own error type (`SqliteEntityRepositoryError`) whose
+variants name what went wrong in the adapter's terms — a unique index, a
+trigger, a row that did not match, an invalid column — plus the vendor error
+itself, kept typed. The adapter's internals return this type. It converts
+into the entity error in exactly one place, in the adapter file, by an
+exhaustive match (X9). The adapter error never appears in a port signature,
+a service or the edge, and the entity error never names it: the conversion
+is a match into domain-owned variants, not a transparent wrap.
 
-**Check:** every conversion from a vendor error type is defined in an adapter
-file.
+**Check:** every adapter file defines its error type and one conversion into
+the entity error; no port, service or edge file names an adapter error type.
 
-### A3 — Domain facts are mapped at the call site
-Vendor errors that are domain facts are mapped inline where context exists: a
-unique-key violation on insert becomes `AlreadyExists(id)`, not the
-catch-all.
+### A3 — Domain facts are recognised structurally
+Vendor failures that are domain facts — a unique-key violation on insert, a
+trigger refusing a change — are recognised from the vendor error's kind,
+code or constraint name, once, when the vendor error becomes the adapter
+error, and map to a named entity variant (`AlreadyExists(id)`), not the
+catch-all. Searching the vendor's message text is never how a fact is
+recognised; a trigger's own message, which the app defines, may be compared
+in full.
 
 **Check:** for each insert/update, constraint violations that the domain
-cares about produce a named variant.
+cares about produce a named variant; no `to_string().contains(` on a vendor
+error.
 
 ### A4 — Only opaque failures fall through
 Only genuinely opaque failures (connection lost, driver bug) reach the
@@ -59,7 +70,7 @@ Adapters build entities the same way the edge does (N10).
 A query result is read into a row type (`OrderRow`, `#[derive(FromRow)]` or
 equivalent) and enters the domain through `TryFrom<OrderRow> for Order`,
 which calls the domain constructors (A7) and turns a bad column into the
-catch-all naming that column. A row type read by several adapters of one
+adapter error's invalid-row variant naming that column (A2). A row type read by several adapters of one
 vendor lives in `<vendor>_<entity>_rows`, the one exception to A1; a row type
 read by one adapter lives in that adapter's file. Single scalar reads (a
 count, a returned id) need no row type.
@@ -72,19 +83,32 @@ domain.
 
 ```
 # adapters/postgres_entity_repository
+error PostgresEntityRepositoryError          # adapter vocabulary (A2)
+  NameTaken                                  # unique index entities.name
+  NoRow
+  InvalidRow { column }                      # A8
+  Database(PostgresError)                    # the vendor error, still typed
+
+classify(e: PostgresError) -> PostgresEntityRepositoryError
+  if e.kind is UniqueViolation: NameTaken    # by kind, never by message (A3)
+  else: Database(e)
+
+convert PostgresEntityRepositoryError -> EntityError   # exhaustive (X9)
+  NameTaken             -> AlreadyExists
+  NoRow                 -> NotFound
+  InvalidRow { column } -> Repository("invalid row: " + column)    # A4
+  Database(e)           -> Repository(e.message)
+
 adapter PostgresEntityRepository implements EntityRepository
   constructed with: pool                     # injected (A6)
 
-  save(entity):
-    result = pool.insert("entities", row_from(entity))
-    on UniqueViolation: return EntityError.AlreadyExists(entity.id())    # A3
-    on other failure e: return EntityError.Repository(e.message)        # A4
+  save(entity) -> () | EntityError
+    pool.insert("entities", row_from(entity)) or fail with classify(e)
+    # the port returns EntityError: convert once, here
 
-  fetch(id):
-    row = pool.query_one(...)
-    return Entity.new(EntityId.new(row.id)?, EntityName.new(row.name)?, ...)  # A7
-
-translate PostgresError -> EntityError: EntityError.Repository(message)  # A2
+  fetch(id) -> Entity | EntityError
+    row = pool.query_one(...) as EntityRow
+    return Entity.try_from(row)              # A7, A8: InvalidRow on a bad column
 
 # adapters/entity_repo   (generated, G1)
 dispatch EntityRepo implements EntityRepository

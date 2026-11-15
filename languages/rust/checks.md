@@ -220,3 +220,17 @@ rg -n 'SystemTime::now|Instant::now|tokio::time::sleep|thread::sleep|Uuid::new_v
 # T11: whole-fragment markup assertions (read hits: long literal HTML in asserts)
 rg -n 'assert(_eq)?!\(.*"<[a-z]+[^"]{120,}' src tests
 ```
+
+## Errors: adapter errors and exhaustive conversions (A2, A3, X9)
+
+```sh
+# X9: wildcard arms in error conversions (read hits: every From/try_from
+# between error types and every responses.rs mapping must list its variants)
+rg -n -B8 '^\s*(_|other|e|err)\s*=>' src/adapters src/http --glob '!**/*tests*' | rg -n 'impl From<\w*Error|fn from_\w+_error|-> \w*Error\b'
+
+# A3: domain facts recognised by searching vendor message text (expect: none)
+rg -n 'to_string\(\)\s*\.contains\(' src/adapters
+
+# A2: adapter error types escaping the adapter (expect: none)
+rg -n '\w+RepositoryError\b' src/ports src/services src/http src/domain
+```

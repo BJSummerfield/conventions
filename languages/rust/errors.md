@@ -4,7 +4,8 @@
 
 | Hop | Lives in | Rust |
 |---|---|---|
-| vendor → entity | adapter file | `impl From<sqlx::Error> for EntityError`, or `.map_err` at the call site for domain facts |
+| vendor → adapter | adapter file | `Database(#[from] sqlx::Error)` plus one `classify(sqlx::Error, ..)` that recognises unique and trigger failures by kind or code |
+| adapter → entity | adapter file | `impl From<SqliteEntityRepositoryError> for EntityError`, an exhaustive `match` (X9) |
 | entity → service | service file | `#[error(transparent)] Entity(#[from] EntityError)` |
 | service → action | `http/<entity>/responses.rs` | `impl From<EntityServiceError> for EntityUpdateError` |
 | action → status | same | `impl IntoResponse for EntityUpdateError` |
@@ -88,3 +89,43 @@ let name = EntityName::new(raw).unwrap_or_else(|_| EntityName::new("unknown").un
 #[error("{0}")]
 Invalid(String),                                 // carry { field, max, actual } instead
 ```
+
+## Adapter error (A2, A3, X9)
+
+```rust
+// src/adapters/sqlite_entity_repository.rs — private to the adapter
+#[derive(Debug, thiserror::Error)]
+enum SqliteEntityRepositoryError {
+    #[error("entity {id} already exists")]
+    NameTaken { id: EntityId },
+    #[error("invalid row: {column}")]
+    InvalidRow { column: &'static str },
+    #[error(transparent)]
+    Database(#[from] sqlx::Error),
+}
+
+impl SqliteEntityRepositoryError {
+    // The call site passes what it was writing, so the fact can name it.
+    fn classify(err: sqlx::Error, id: EntityId) -> Self {
+        match err.as_database_error() {
+            Some(db) if db.is_unique_violation() => Self::NameTaken { id },
+            _ => Self::Database(err),
+        }
+    }
+}
+
+impl From<SqliteEntityRepositoryError> for EntityError {
+    fn from(err: SqliteEntityRepositoryError) -> Self {
+        match err {
+            SqliteEntityRepositoryError::NameTaken { id } => EntityError::AlreadyExists(id),
+            SqliteEntityRepositoryError::InvalidRow { .. }
+            | SqliteEntityRepositoryError::Database(_) => EntityError::Repository(err.to_string()),
+        }
+    }
+}
+```
+
+The port method converts once at its return (`.map_err(EntityError::from)`);
+everything inside the adapter works in `SqliteEntityRepositoryError`. The
+entity error cannot wrap the adapter error transparently, because the domain
+never names an adapter type (P2, S4).

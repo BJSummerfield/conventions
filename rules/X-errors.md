@@ -8,8 +8,8 @@ wrong, and each hop between boundaries is one explicit conversion.
 ### X1 — The ladder: one conversion per hop, on the outer side
 ```
 vendor error
-  → EntityError       in the adapter file (A2), or inline where the
-                      failure is a domain fact (A3)
+  → AdapterError      in the adapter file, naming the adapter's own failures (A2)
+  → EntityError       one exhaustive conversion, in the adapter file (A2, A3)
   → ServiceError      transparent wrapping, automatic conversion (V4)
   → ActionError       conversion from ServiceError, per action, in the edge (E12)
   → status + body     the response mapping, per variant (E14)
@@ -69,6 +69,15 @@ accept "any error" actually wants *this boundary's* error — name it.
 **Check:** no dynamic/virtual-dispatch error or interface types in any
 signature.
 
+### X9 — Every error conversion names every variant
+A conversion between error types — adapter to entity, entity to service,
+service to action, action to response — matches each variant of its input
+explicitly. A wildcard arm is never used, so adding a variant fails to
+compile until every conversion that receives it decides what it means.
+
+**Check:** no `_ =>` arm (or catch-all binding) in any function that
+converts one error type into another.
+
 ## Pseudocode
 
 ```
@@ -90,7 +99,8 @@ error UpdateEntityError                    # edge, per action (E11)
 convert EntityServiceError -> UpdateEntityError    # E12
   Entity(NotFound(id))  -> NotFound { "entity", id }
   TeamNotFound(id)      -> Validation(team_id_error = "unknown team")
-  other                 -> Internal(other)
+  Entity(AlreadyExists) -> Conflict { "entity already exists" }
+  Entity(Repository(_)) -> Internal(source)       # every variant listed (X9)
 ```
 
 Rust: [languages/rust/errors.md](../languages/rust/errors.md).

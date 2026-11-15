@@ -107,7 +107,16 @@ impl From<EntityServiceError> for EntityCreateError {
                 team_id_error: Some("unknown team".into()),
                 ..Default::default()
             }),
-            other => Self::Internal(other),
+            // Field validity was settled by the conversion (E3), so these reaching a
+            // service are internal faults; listing them means a new variant fails to
+            // compile here instead of falling into Internal unseen (X9).
+            e @ EntityServiceError::Entity(
+                EntityError::EmptyName
+                | EntityError::NameTooLong { .. }
+                | EntityError::InvalidId { .. }
+                | EntityError::Repository(_),
+            ) => Self::Internal(e),
+            e @ EntityServiceError::Team(TeamError::Repository(_)) => Self::Internal(e),
         }
     }
 }
